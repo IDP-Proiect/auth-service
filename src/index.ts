@@ -21,7 +21,15 @@ interface JwtModel {username:string, token:string}
 // Registration endpoint
 app.post('/api/auth/register', async (req: Request<null, UserModel>, res: Response) => {
 
-   const newUser = await prisma.user.create({data:{username:req.body.username, password:req.body.password, email:req.body.email, role:"consumer"}})
+    const bcrypt = require('bcrypt');
+    const saltRounds = 10;
+    const plaintextPassword = req.body.password;
+
+    const salt = bcrypt.genSaltSync(saltRounds);
+    const hash = bcrypt.hashSync(plaintextPassword, salt);
+
+
+   const newUser = await prisma.user.create({data:{username:req.body.username, password:hash, email:req.body.email, role:"consumer"}})
    return res.json({
     success: true,
     data: newUser
@@ -32,17 +40,16 @@ app.post('/api/auth/register', async (req: Request<null, UserModel>, res: Respon
 // Login endpoint
 app.post('/api/auth/login', async (req: Request<null, UserLoginModel>, res: Response) => {
     try {
-        //TODO: Add password hashing to registrations and logins
+        const bcrypt = require('bcrypt');
 
         // Get user from database
         const user = await prisma.user.findFirst({
             where: {
                 username: req.body.username,
-                password: req.body.password
             },
         });
-        
-        if (!user) {
+
+        if (!user || !bcrypt.compareSync(req.body.password, user.password)) {
             return res.json({
                 success: false,
                 message: 'Invalid credentials',
