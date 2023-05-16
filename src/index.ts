@@ -75,7 +75,7 @@ app.post('/api/auth/login', async (req: Request<null, UserLoginModel>, res: Resp
 
 
 // Validation endpoint
-app.post('/api/validation', async (req: Request<null, JwtModel>, res: Response) => {
+app.post('/api/auth/validation', async (req: Request<null, JwtModel>, res: Response) => {
     try {
 
         jwt.verify(req.body.token, jwtSecret)
