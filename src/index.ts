@@ -1,39 +1,48 @@
 import express, { Express, Request, Response } from 'express';
 import dotenv from 'dotenv';
+
+process.env.DATABASE_URL = fs.readFileSync('/run/secrets/DATABASE_URL', 'utf8').trim();
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
-
+import fs from 'fs'
 const prisma = new PrismaClient()
 
 dotenv.config();
 
 const app: Express = express();
-const port = 8080;
+const port = 80;
 
 app.use(express.json());
 
-const jwtSecret = process.env.JWT_SECRET || 'blnbmb';
+// Read JWT secret from docker secret file
+const jwtSecret = fs.readFileSync('/run/secrets/JWT_SECRET', 'utf8').trim();
 
-interface UserModel {username:string, password:string, email:string}
-interface UserLoginModel {username:string, password:string}
-interface JwtModel {username:string, token:string}
+interface UserModel { username: string, password: string, email: string }
+interface UserLoginModel { username: string, password: string }
+interface JwtModel { username: string, token: string }
 
 // Registration endpoint
 app.post('/api/auth/register', async (req: Request<null, UserModel>, res: Response) => {
-
     const bcrypt = require('bcrypt');
     const saltRounds = 10;
     const plaintextPassword = req.body.password;
 
-    const salt = bcrypt.genSaltSync(saltRounds);
-    const hash = bcrypt.hashSync(plaintextPassword, salt);
+    try {
+        const salt = bcrypt.genSaltSync(saltRounds);
+        const hash = bcrypt.hashSync(plaintextPassword, salt);
+        const newUser = await prisma.user.create({ data: { username: req.body.username, password: hash, email: req.body.email, role: "consumer" } })
+        return res.json({
+            success: true,
+            data: newUser
+        });
+    } catch (error) {
+        console.log(error)
+        return res.json({
+            success: false,
+            message: error
+        });
+    }
 
-
-   const newUser = await prisma.user.create({data:{username:req.body.username, password:hash, email:req.body.email, role:"consumer"}})
-   return res.json({
-    success: true,
-    data: newUser
-    });
 }
 )
 
@@ -77,7 +86,6 @@ app.post('/api/auth/login', async (req: Request<null, UserLoginModel>, res: Resp
 // Validation endpoint
 app.post('/api/auth/validation', async (req: Request<null, JwtModel>, res: Response) => {
     try {
-
         jwt.verify(req.body.token, jwtSecret)
 
         return res.json({
@@ -92,6 +100,7 @@ app.post('/api/auth/validation', async (req: Request<null, JwtModel>, res: Respo
 });
 
 app.listen(port, () => {
-  console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
+    console.log("SECRET" + jwtSecret)
+    console.log(`⚡️[server]: Server is running at port port`);
 });
 
